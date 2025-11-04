@@ -14,8 +14,8 @@ SDL_FRect walls[1];
 static SDL_Texture *wallTexture;
 
 float mouseX,mouseY = 0;
-#define WINDOW_WIDTH 640
-#define WINDOW_HEIGHT 480
+int windowW = 640;
+int windowH = 480;
 void resetPlayer() {
     playerBody[0].x =0;
     playerBody[0].y =0;
@@ -111,17 +111,19 @@ SDL_AppResult loadTextures() {
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
     SDL_SetAppMetadata(TITLE, VERSION, NAMESPACE);
-
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 
-    if (!SDL_CreateWindowAndRenderer(TITLE, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE, &window, &renderer)) {
+    if (!SDL_CreateWindowAndRenderer(TITLE, windowW, windowW, SDL_WINDOW_RESIZABLE, &window, &renderer)) {
         SDL_Log("Couldn't create window/renderer: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
-    SDL_SetRenderLogicalPresentation(renderer, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+
+    SDL_GetWindowSize(window,&windowW,&windowH);
+    SDL_SetRenderLogicalPresentation(renderer, windowW, windowH, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    SDL_SetWindowMouseGrab(window, true);
     generateWalls();
     if(loadTextures() != SDL_APP_CONTINUE) {
     	return SDL_APP_FAILURE;
