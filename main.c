@@ -3,7 +3,6 @@
 #include <SDL3/SDL_main.h>
 #include "info.h"
 #include <SDL3/SDL_surface.h>
-#include <math.h>
 /* We will use this renderer to draw into this window every frame. */
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
@@ -16,6 +15,31 @@ static SDL_Texture *wallTexture;
 float mouseX,mouseY = 0;
 int windowW = 640;
 int windowH = 480;
+typedef struct bullet {
+	SDL_FRect rect;
+	float velocityX;
+	float velocityY;
+	float velocityLoss;
+}bullet;
+void updateBullet(struct bullet *bullet) {
+	if(bullet->velocityLoss > SDL_fabs(bullet->velocityX)) {
+		bullet->velocityX =0;
+	}
+	else {
+		bullet->rect.x += bullet->velocityX;
+		bullet->velocityX -= bullet->velocityLoss;
+	}
+	if(bullet->velocityLoss > SDL_fabs(bullet->velocityY)) {
+		bullet->velocityY =0;
+	}
+	else {
+		bullet->rect.y += bullet->velocityY;
+		bullet->velocityY -= bullet->velocityLoss;
+	}
+
+
+}
+struct bullet *bullets[1];
 void resetPlayer() {
     playerBody[0].x =0;
     playerBody[0].y =0;
@@ -27,6 +51,11 @@ void generateWalls() {
 	walls->y =150;
 	walls->w =50;
 	walls->h =50;
+}
+void updateProjectiles() {
+	if(bullets[0] != NULL) {
+		updateBullet(bullets[0]);
+	}
 }
 	
 void checkForInputs() {
@@ -48,6 +77,15 @@ void checkForInputs() {
 	if(key_states[SDL_SCANCODE_ESCAPE]) {
 		SDL_SetWindowMouseGrab(window,false);
 		SDL_CaptureMouse(false);
+	}
+	if (key_states[SDL_SCANCODE_E]) {
+		bullets[0] = SDL_malloc(sizeof(struct bullet));
+		bullets[0]->rect.x = playerBody->x;
+		bullets[0]->rect.y = playerBody->y;
+		bullets[0]->rect.w = 5;
+		bullets[0]->rect.h = 10;
+		bullets[0]->velocityX = .01;
+		bullets[0]->velocityLoss =0.000001;
 	}
 	//Move back player by how far they intersected on their respective side
 	if(SDL_GetRectIntersectionFloat(playerBody, walls, intersect)) {
@@ -74,7 +112,7 @@ void checkForInputs() {
 	SDL_GetMouseState(&mouseX, &mouseY);
 }
 int getRotationRelativeToPoint(int x, int y, int a, int b) {
-return (atan2((y-b), x-a)*180.0000)/3.1416;
+return (SDL_atan2((y-b), x-a)*180.0000)/3.1416;
 }
 SDL_AppResult loadTextureFromBMP(SDL_Texture **texture, float w, float h, char * path) {
     char * bmp_path = NULL;
@@ -156,6 +194,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 /* This function runs once per frame, and is the heart of the program. */
 SDL_AppResult SDL_AppIterate(void *appstate)
 {
+    updateProjectiles();
     checkForInputs();    
     playerRotation = getRotationRelativeToPoint(playerBody->x+(playerBody->w/2),playerBody->y+(playerBody->h/2), mouseX, mouseY);
     SDL_SetRenderDrawColor(renderer, 210, 180, 140, SDL_ALPHA_OPAQUE);  
@@ -164,6 +203,7 @@ SDL_AppResult SDL_AppIterate(void *appstate)
     SDL_SetTextureBlendMode(wallTexture, SDL_BLENDMODE_NONE);
     SDL_RenderTextureTiled(renderer, wallTexture,NULL,1, walls);
     SDL_RenderTextureRotated(renderer,playerTexture,NULL,playerBody,playerRotation,NULL,SDL_FLIP_NONE);
+    SDL_RenderRect(renderer, &bullets[0]->rect);
     SDL_RenderPresent(renderer);  /* put it all on the screen! */
 
     return SDL_APP_CONTINUE;  /* carry on with the program! */
