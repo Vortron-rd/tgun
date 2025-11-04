@@ -200,8 +200,8 @@ SDL_AppResult SDL_AppIterate(void *appstate)
     SDL_SetRenderDrawColor(renderer, 210, 180, 140, SDL_ALPHA_OPAQUE);  
     SDL_RenderClear(renderer);  /* start with a blank canvas. */
     SDL_SetRenderDrawColor(renderer, 0,0,0, SDL_ALPHA_OPAQUE);
-    SDL_SetTextureBlendMode(wallTexture, SDL_BLENDMODE_NONE);
     SDL_RenderTextureTiled(renderer, wallTexture,NULL,1, walls);
+    SDL_SetTextureColorMod(playerTexture, 0,0,255);
     SDL_RenderTextureRotated(renderer,playerTexture,NULL,playerBody,playerRotation,NULL,SDL_FLIP_NONE);
     SDL_RenderRect(renderer, &bullets[0]->rect);
     SDL_RenderPresent(renderer);  /* put it all on the screen! */
