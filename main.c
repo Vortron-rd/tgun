@@ -45,6 +45,10 @@ void checkForInputs() {
 	if (key_states[SDL_SCANCODE_A]) {
         	playerBody[0].x -= .01;  
 	}
+	if(key_states[SDL_SCANCODE_ESCAPE]) {
+		SDL_SetWindowMouseGrab(window,false);
+		SDL_CaptureMouse(false);
+	}
 	//Move back player by how far they intersected on their respective side
 	if(SDL_GetRectIntersectionFloat(playerBody, walls, intersect)) {
 		if(intersect->w < intersect->h) {
@@ -123,7 +127,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 
     SDL_GetWindowSize(window,&windowW,&windowH);
     SDL_SetRenderLogicalPresentation(renderer, windowW, windowH, SDL_LOGICAL_PRESENTATION_LETTERBOX);
-    SDL_SetWindowMouseGrab(window, true);
     generateWalls();
     if(loadTextures() != SDL_APP_CONTINUE) {
     	return SDL_APP_FAILURE;
@@ -138,6 +141,9 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
     switch(event->type) {
     	case  SDL_EVENT_QUIT:
         	return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
+	break;
+	case SDL_EVENT_WINDOW_FOCUS_GAINED:
+		SDL_SetWindowMouseGrab(window, true);
 	break;
     }
     return SDL_APP_CONTINUE; /* carry on with the program! */
