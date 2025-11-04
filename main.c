@@ -145,6 +145,10 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 	case SDL_EVENT_WINDOW_FOCUS_GAINED:
 		SDL_SetWindowMouseGrab(window, true);
 	break;
+	case SDL_EVENT_WINDOW_RESIZED:
+		SDL_GetWindowSize(window,&windowW,&windowH);
+		SDL_SetRenderLogicalPresentation(renderer, windowW, windowH, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+	break;
     }
     return SDL_APP_CONTINUE; /* carry on with the program! */
 }
