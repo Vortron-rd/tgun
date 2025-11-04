@@ -102,8 +102,6 @@ SDL_AppResult SDL_AppIterate(void *appstate)
     SDL_SetRenderDrawColor(renderer, 210, 180, 140, SDL_ALPHA_OPAQUE);  
     SDL_RenderClear(renderer);  /* start with a blank canvas. */
     SDL_SetRenderDrawColor(renderer, 0,0,0, SDL_ALPHA_OPAQUE);
-    //SDL_RenderFillRect(renderer, playerBody);
-    //(int[]){1, 2, 3}
     SDL_RenderTextureRotated(renderer,playerTexture,NULL,playerBody,getRotationRelativeToPoint(playerBody->x+(playerBody->w/2),playerBody->y+(playerBody->h/2),mouseX,mouseY),NULL,SDL_FLIP_NONE);
     SDL_RenderPresent(renderer);  /* put it all on the screen! */
 
