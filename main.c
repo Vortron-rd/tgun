@@ -3,35 +3,41 @@
 #include <SDL3/SDL_main.h>
 #include "info.h"
 #include <SDL3/SDL_surface.h>
+#include <math.h>
 /* We will use this renderer to draw into this window every frame. */
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
 static SDL_Texture *playerTexture;
-SDL_FRect playerbody[1];
+SDL_FRect playerBody[1];
+float mouseX,mouseY = 0;
 #define WINDOW_WIDTH 640
 #define WINDOW_HEIGHT 480
 void resetPlayer() {
-    playerbody[0].x =0;
-    playerbody[0].y =0;
-    playerbody[0].w =20;
-    playerbody[0].h =20;
+    playerBody[0].x =0;
+    playerBody[0].y =0;
+    playerBody[0].w =20;
+    playerBody[0].h =20;
 }
 void checkForInputs() {
 	const bool *key_states = SDL_GetKeyboardState(NULL);
 	if (key_states[SDL_SCANCODE_S]) {
-        	playerbody[0].y += .01;  
+        	playerBody[0].y += .01;  
         } 
 	
 	if (key_states[SDL_SCANCODE_W]) {
-        	playerbody[0].y -= .01;  
+        	playerBody[0].y -= .01;  
 	}
 	if (key_states[SDL_SCANCODE_D]) {
-        	playerbody[0].x += .01;  
+        	playerBody[0].x += .01;  
 	}
 	if (key_states[SDL_SCANCODE_A]) {
-        	playerbody[0].x -= .01;  
+        	playerBody[0].x -= .01;  
 	}
+	SDL_GetMouseState(&mouseX, &mouseY);
 	
+}
+int getRotationRelativeToPoint(int x, int y, int a, int b) {
+return (atan2((y-b), x-a)*180.0000)/3.1416;
 }
 SDL_AppResult loadTextures() {
     char * bmp_path = NULL;
@@ -96,8 +102,9 @@ SDL_AppResult SDL_AppIterate(void *appstate)
     SDL_SetRenderDrawColor(renderer, 210, 180, 140, SDL_ALPHA_OPAQUE);  
     SDL_RenderClear(renderer);  /* start with a blank canvas. */
     SDL_SetRenderDrawColor(renderer, 0,0,0, SDL_ALPHA_OPAQUE);
-    //SDL_RenderFillRect(renderer, playerbody);
-    SDL_RenderTexture(renderer, playerTexture, NULL, playerbody);
+    //SDL_RenderFillRect(renderer, playerBody);
+    //(int[]){1, 2, 3}
+    SDL_RenderTextureRotated(renderer,playerTexture,NULL,playerBody,getRotationRelativeToPoint(playerBody->x+(playerBody->w/2),playerBody->y+(playerBody->h/2),mouseX,mouseY),NULL,SDL_FLIP_NONE);
     SDL_RenderPresent(renderer);  /* put it all on the screen! */
 
     return SDL_APP_CONTINUE;  /* carry on with the program! */
