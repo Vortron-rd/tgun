@@ -1,4 +1,7 @@
 #define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
+#define PI 0x1.921fb6p+1f
+#define BULLET_LIMIT 500
+#define BULLET_COOLDOWN 100
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include "info.h"
@@ -6,45 +9,73 @@
 /* We will use this renderer to draw into this window every frame. */
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
-static SDL_Texture *playerTexture;
-SDL_FRect playerBody[1];
-int playerRotation = 0;
 SDL_FRect walls[1];
 static SDL_Texture *wallTexture;
-
+static SDL_Texture *bulletTexture;
 float mouseX,mouseY = 0;
 int windowW = 640;
 int windowH = 480;
+typedef struct player {
+	SDL_Texture *texture;
+	SDL_FRect boundingBox; 
+	int rotation;
+	int bulletfiredt; // Last time this player fired a bullet
+}player;
+struct player mainPlayer;
+unsigned int bulletc =0;
 typedef struct bullet {
 	SDL_FRect rect;
 	float velocityX;
 	float velocityY;
 	float velocityLoss;
+	float rotation;
 }bullet;
+struct bullet *bullets;
 void updateBullet(struct bullet *bullet) {
 	if(bullet->velocityLoss > SDL_fabs(bullet->velocityX)) {
 		bullet->velocityX =0;
 	}
 	else {
 		bullet->rect.x += bullet->velocityX;
-		bullet->velocityX -= bullet->velocityLoss;
+		if(bullet->velocityX < 0) {
+			bullet->velocityX += bullet->velocityLoss;
+		} 
+		else {
+			bullet->velocityX -= bullet->velocityLoss;
+		}
 	}
 	if(bullet->velocityLoss > SDL_fabs(bullet->velocityY)) {
 		bullet->velocityY =0;
 	}
 	else {
 		bullet->rect.y += bullet->velocityY;
-		bullet->velocityY -= bullet->velocityLoss;
+		if(bullet->velocityY < 0) {
+			bullet->velocityY += bullet->velocityLoss;
+		} 
+		else {
+			bullet->velocityY -= bullet->velocityLoss;
+		}
 	}
-
-
 }
-struct bullet *bullets[1];
+void fireBullet() {
+			if(bulletc > BULLET_LIMIT-1) {
+				bulletc = 0;
+			}
+			bullets[bulletc].rect.x = mainPlayer.boundingBox.x+(mainPlayer.boundingBox.w/2);
+			bullets[bulletc].rect.y = mainPlayer.boundingBox.y+(mainPlayer.boundingBox.h/2);
+			bullets[bulletc].rect.w = 5;
+			bullets[bulletc].rect.h = 10;
+			bullets[bulletc].velocityX = -1*SDL_cos(mainPlayer.rotation*PI/180)/60;
+			bullets[bulletc].velocityY = -1*SDL_sin(mainPlayer.rotation*PI/180)/60;
+			bullets[bulletc].velocityLoss = 0;
+			bullets[bulletc].rotation = mainPlayer.rotation;
+			bulletc++;
+}
 void resetPlayer() {
-    playerBody[0].x =0;
-    playerBody[0].y =0;
-    playerBody[0].w =20;
-    playerBody[0].h =20;
+    mainPlayer.boundingBox.x =0;
+    mainPlayer.boundingBox.y =0;
+    mainPlayer.boundingBox.w =20;
+    mainPlayer.boundingBox.h =20;
 }
 void generateWalls() {
 	walls->x =100;
@@ -52,59 +83,49 @@ void generateWalls() {
 	walls->w =50;
 	walls->h =50;
 }
-void updateProjectiles() {
-	if(bullets[0] != NULL) {
-		updateBullet(bullets[0]);
-	}
-}
 	
 void checkForInputs() {
 	const bool *key_states = SDL_GetKeyboardState(NULL);
 	SDL_FRect intersect[1];
 	if (key_states[SDL_SCANCODE_S]) {
-        	playerBody[0].y += .01;  
+        	mainPlayer.boundingBox.y += .01;  
         } 
 	
 	if (key_states[SDL_SCANCODE_W]) {
-        	playerBody[0].y -= .01;  
+        	mainPlayer.boundingBox.y -= .01;  
 	}	
 	if (key_states[SDL_SCANCODE_D]) {
-        	playerBody[0].x += .01;  
+        	mainPlayer.boundingBox.x += .01;  
 	}
 	if (key_states[SDL_SCANCODE_A]) {
-        	playerBody[0].x -= .01;  
+        	mainPlayer.boundingBox.x -= .01;  
 	}
 	if(key_states[SDL_SCANCODE_ESCAPE]) {
 		SDL_SetWindowMouseGrab(window,false);
 		SDL_CaptureMouse(false);
 	}
-	if (key_states[SDL_SCANCODE_E]) {
-		bullets[0] = SDL_malloc(sizeof(struct bullet));
-		bullets[0]->rect.x = playerBody->x;
-		bullets[0]->rect.y = playerBody->y;
-		bullets[0]->rect.w = 5;
-		bullets[0]->rect.h = 10;
-		bullets[0]->velocityX = .01;
-		bullets[0]->velocityLoss =0.000001;
+	if (key_states[SDL_SCANCODE_E] && (SDL_GetTicks()-mainPlayer.bulletfiredt) > BULLET_COOLDOWN) {
+		fireBullet();
+		mainPlayer.bulletfiredt= SDL_GetTicks();
 	}
 	//Move back player by how far they intersected on their respective side
-	if(SDL_GetRectIntersectionFloat(playerBody, walls, intersect)) {
+	if(SDL_GetRectIntersectionFloat(&mainPlayer.boundingBox, walls, intersect)) {
 		if(intersect->w < intersect->h) {
-			if(intersect->x > playerBody->x) {
-				playerBody->x -= intersect->w;
+			if(intersect->x > mainPlayer.boundingBox.x) {
+				mainPlayer.boundingBox.x -= intersect->w;
 			}
 			//invert for opposite sides
 			else {
-				playerBody->x += intersect->w;
+				mainPlayer.boundingBox.x += intersect->w;
 			}
 		}
 		else {
-			if(intersect->y > playerBody->y) {
-				playerBody->y -= intersect->h;
+			if(intersect->y > mainPlayer.boundingBox.y) {
+				mainPlayer.boundingBox.y -= intersect->h;
 			}
 			//invert for opposite sides
 			else {
-				playerBody->y += intersect->h;
+				mainPlayer.boundingBox.y += intersect->h;
 			}
 		}
 
@@ -112,7 +133,7 @@ void checkForInputs() {
 	SDL_GetMouseState(&mouseX, &mouseY);
 }
 int getRotationRelativeToPoint(int x, int y, int a, int b) {
-return (SDL_atan2((y-b), x-a)*180.0000)/3.1416;
+return (SDL_atan2((y-b), x-a)*180.0000)/PI;
 }
 SDL_AppResult loadTextureFromBMP(SDL_Texture **texture, float w, float h, char * path) {
     char * bmp_path = NULL;
@@ -140,18 +161,23 @@ SDL_AppResult loadTextureFromBMP(SDL_Texture **texture, float w, float h, char *
 
 }
 SDL_AppResult loadTextures() {
-	if(loadTextureFromBMP(&playerTexture, 20,20, "%simages/character.bmp") != SDL_APP_CONTINUE) {
+	if(loadTextureFromBMP(&mainPlayer.texture, 20,20, "%simages/character.bmp") != SDL_APP_CONTINUE) {
 		return SDL_APP_FAILURE;	
 	}
 	
 	if(loadTextureFromBMP(&wallTexture, 10,10, "%simages/wallTile.bmp") != SDL_APP_CONTINUE) {
 		return SDL_APP_FAILURE;	
 	}
+	if(loadTextureFromBMP(&bulletTexture, 10,5, "%simages/bullet.bmp") != SDL_APP_CONTINUE) {
+		return SDL_APP_FAILURE;	
+	}
+
 	return SDL_APP_CONTINUE;
 }
 /* This function runs once at startup. */
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
+    bullets = SDL_malloc(sizeof(struct bullet)*BULLET_LIMIT);
     SDL_SetAppMetadata(TITLE, VERSION, NAMESPACE);
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
@@ -194,16 +220,21 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 /* This function runs once per frame, and is the heart of the program. */
 SDL_AppResult SDL_AppIterate(void *appstate)
 {
-    updateProjectiles();
     checkForInputs();    
-    playerRotation = getRotationRelativeToPoint(playerBody->x+(playerBody->w/2),playerBody->y+(playerBody->h/2), mouseX, mouseY);
+    mainPlayer.rotation = getRotationRelativeToPoint(mainPlayer.boundingBox.x+(mainPlayer.boundingBox.w/2),mainPlayer.boundingBox.y+(mainPlayer.boundingBox.h/2), mouseX, mouseY);
     SDL_SetRenderDrawColor(renderer, 210, 180, 140, SDL_ALPHA_OPAQUE);  
     SDL_RenderClear(renderer);  /* start with a blank canvas. */
     SDL_SetRenderDrawColor(renderer, 0,0,0, SDL_ALPHA_OPAQUE);
     SDL_RenderTextureTiled(renderer, wallTexture,NULL,1, walls);
-    SDL_SetTextureColorMod(playerTexture, 0,0,255);
-    SDL_RenderTextureRotated(renderer,playerTexture,NULL,playerBody,playerRotation,NULL,SDL_FLIP_NONE);
-    SDL_RenderRect(renderer, &bullets[0]->rect);
+    SDL_SetTextureColorMod(mainPlayer.texture, 0,0,255);
+    SDL_SetTextureColorMod(bulletTexture, 0,0,255);
+    SDL_RenderTextureRotated(renderer,mainPlayer.texture,NULL,&mainPlayer.boundingBox,mainPlayer.rotation,NULL,SDL_FLIP_NONE);
+    if(bulletc > 0) {
+		for(int i=0; i<bulletc; ++i){
+			updateBullet(&bullets[i]);
+			SDL_RenderTextureRotated(renderer,bulletTexture,NULL,&bullets[i].rect,bullets[i].rotation+90,NULL,SDL_FLIP_NONE);
+		}
+	}
     SDL_RenderPresent(renderer);  /* put it all on the screen! */
 
     return SDL_APP_CONTINUE;  /* carry on with the program! */
