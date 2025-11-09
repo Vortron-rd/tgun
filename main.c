@@ -1,6 +1,6 @@
 #define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
 #define PI 0x1.921fb6p+1f
-#define BULLET_LIMIT 500
+#define BULLET_LIMIT 10
 #define BULLET_COOLDOWN 100
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -22,7 +22,8 @@ typedef struct player {
 	int bulletfiredt; // Last time this player fired a bullet
 }player;
 struct player mainPlayer;
-unsigned int bulletc =0;
+unsigned int bulletc =0; /* Total bullets in game */
+unsigned int bulletn =0; /* Next index in bullet array that we will write to */ 
 typedef struct bullet {
 	SDL_FRect rect;
 	float velocityX;
@@ -58,18 +59,22 @@ void updateBullet(struct bullet *bullet) {
 	}
 }
 void fireBullet() {
-			if(bulletc > BULLET_LIMIT-1) {
-				bulletc = 0;
-			}
-			bullets[bulletc].rect.x = mainPlayer.boundingBox.x+(mainPlayer.boundingBox.w/2);
-			bullets[bulletc].rect.y = mainPlayer.boundingBox.y+(mainPlayer.boundingBox.h/2);
-			bullets[bulletc].rect.w = 5;
-			bullets[bulletc].rect.h = 10;
-			bullets[bulletc].velocityX = -1*SDL_cos(mainPlayer.rotation*PI/180)/60;
-			bullets[bulletc].velocityY = -1*SDL_sin(mainPlayer.rotation*PI/180)/60;
-			bullets[bulletc].velocityLoss = 0;
-			bullets[bulletc].rotation = mainPlayer.rotation;
-			bulletc++;
+			mainPlayer.bulletfiredt = SDL_GetTicks(); 
+			bullets[bulletn].rect.x = mainPlayer.boundingBox.x+(mainPlayer.boundingBox.w/2);
+			bullets[bulletn].rect.y = mainPlayer.boundingBox.y+(mainPlayer.boundingBox.h/2);
+			bullets[bulletn].rect.w = 5;
+			bullets[bulletn].rect.h = 10;
+			bullets[bulletn].velocityX = -1*SDL_cos(mainPlayer.rotation*PI/180)/60;
+			bullets[bulletn].velocityY = -1*SDL_sin(mainPlayer.rotation*PI/180)/60;
+			bullets[bulletn].velocityLoss = 0.000001;
+			bullets[bulletn].rotation = mainPlayer.rotation;
+			/* Prevent from writing memory past the limit next time
+			if this is attempted, begin overwriting the bullets in order of first to last */
+			if(bulletc < BULLET_LIMIT) {bulletc++; bulletn=bulletc;}
+			if(bulletn >= BULLET_LIMIT-1) bulletn=0;
+			else bulletn++;
+
+			
 }
 void resetPlayer() {
     mainPlayer.boundingBox.x =0;
@@ -106,7 +111,6 @@ void checkForInputs() {
 	}
 	if (key_states[SDL_SCANCODE_E] && (SDL_GetTicks()-mainPlayer.bulletfiredt) > BULLET_COOLDOWN) {
 		fireBullet();
-		mainPlayer.bulletfiredt= SDL_GetTicks();
 	}
 	//Move back player by how far they intersected on their respective side
 	if(SDL_GetRectIntersectionFloat(&mainPlayer.boundingBox, walls, intersect)) {
