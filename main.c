@@ -1,6 +1,6 @@
 #define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
 #define PI 0x1.921fb6p+1f
-#define BULLET_LIMIT 10
+#define BULLET_LIMIT 1000
 #define BULLET_COOLDOWN 100
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -33,6 +33,9 @@ typedef struct bullet {
 }bullet;
 struct bullet *bullets;
 void updateBullet(struct bullet *bullet) {
+	if(bullet->velocityX ==0 && bullet->velocityY ==0){bullet->rect.x=3000000; return;} /* To make this code simpler (and ultimately more robust)
+	just move this out of the way */
+
 	if(bullet->velocityLoss > SDL_fabs(bullet->velocityX)) {
 		bullet->velocityX =0;
 	}
@@ -57,7 +60,7 @@ void updateBullet(struct bullet *bullet) {
 			bullet->velocityY -= bullet->velocityLoss;
 		}
 	}
-}
+	}
 void fireBullet() {
 			mainPlayer.bulletfiredt = SDL_GetTicks(); 
 			bullets[bulletn].rect.x = mainPlayer.boundingBox.x+(mainPlayer.boundingBox.w/2);
