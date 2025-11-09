@@ -95,27 +95,18 @@ void generateWalls() {
 void checkForInputs() {
 	const bool *key_states = SDL_GetKeyboardState(NULL);
 	SDL_FRect intersect[1];
-	if (key_states[SDL_SCANCODE_S]) {
-        	mainPlayer.boundingBox.y += .01;  
-        } 
-	
-	if (key_states[SDL_SCANCODE_W]) {
-        	mainPlayer.boundingBox.y -= .01;  
-	}	
-	if (key_states[SDL_SCANCODE_D]) {
-        	mainPlayer.boundingBox.x += .01;  
-	}
-	if (key_states[SDL_SCANCODE_A]) {
-        	mainPlayer.boundingBox.x -= .01;  
-	}
+	/* move player according to WASD, but reject anymovements that would clip them off screen. */
+	if (key_states[SDL_SCANCODE_W] && mainPlayer.boundingBox.y > 0) mainPlayer.boundingBox.y -= .01;  
+	if (key_states[SDL_SCANCODE_A] && mainPlayer.boundingBox.x > 0) mainPlayer.boundingBox.x -= .01;  
+	if (key_states[SDL_SCANCODE_S] && (mainPlayer.boundingBox.y+mainPlayer.boundingBox.h) < windowH) mainPlayer.boundingBox.y += .01;  
+	if (key_states[SDL_SCANCODE_D] && (mainPlayer.boundingBox.x+mainPlayer.boundingBox.w) < windowW) mainPlayer.boundingBox.x += .01;  
+	/* if BULLET_COOLDOWN time has passed since the last shot, shoot a bullet */
+	if (key_states[SDL_SCANCODE_E] && (SDL_GetTicks()-mainPlayer.bulletfiredt) > BULLET_COOLDOWN) fireBullet();
 	if(key_states[SDL_SCANCODE_ESCAPE]) {
 		SDL_SetWindowMouseGrab(window,false);
 		SDL_CaptureMouse(false);
 	}
-	if (key_states[SDL_SCANCODE_E] && (SDL_GetTicks()-mainPlayer.bulletfiredt) > BULLET_COOLDOWN) {
-		fireBullet();
-	}
-	//Move back player by how far they intersected on their respective side
+	//Move back player by how far they intersected a wall on their respective side, if they did
 	if(SDL_GetRectIntersectionFloat(&mainPlayer.boundingBox, walls, intersect)) {
 		if(intersect->w < intersect->h) {
 			if(intersect->x > mainPlayer.boundingBox.x) {
