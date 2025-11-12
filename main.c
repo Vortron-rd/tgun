@@ -2,6 +2,7 @@
 #define PI 0x1.921fb6p+1f
 #define BULLET_LIMIT 1000
 #define BULLET_COOLDOWN 100
+#define MOB_LIMIT 3
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include "info.h"
@@ -15,13 +16,17 @@ static SDL_Texture *bulletTexture;
 float mouseX,mouseY = 0;
 int windowW = 640;
 int windowH = 480;
-typedef struct player {
+typedef struct mob {
 	SDL_Texture *texture;
 	SDL_FRect boundingBox; 
 	int rotation;
-	int bulletfiredt; // Last time this player fired a bullet
-}player;
-struct player mainPlayer;
+	int bulletfiredt;// Last time this player fired a bullet
+	int color[3];
+	int health;
+	bool dead;
+}mob;
+struct mob mainPlayer; 
+struct mob *mobs; /* Holds data for mobs other than mainPlayer */
 unsigned int bulletc =0; /* Total bullets in game */
 unsigned int bulletn =0; /* Next index in bullet array that we will write to */ 
 typedef struct bullet {
@@ -84,6 +89,10 @@ void resetPlayer() {
     mainPlayer.boundingBox.y =0;
     mainPlayer.boundingBox.w =20;
     mainPlayer.boundingBox.h =20;
+    /* set RGB color for player, should be completely blue */
+    mainPlayer.color[0] = 0; 
+    mainPlayer.color[1] = 0;
+    mainPlayer.color[2] = 255;
 }
 void generateWalls() {
 	walls->x =100;
@@ -91,7 +100,20 @@ void generateWalls() {
 	walls->w =50;
 	walls->h =50;
 }
-	
+void generateMobs() {
+	for(int i=0; i<MOB_LIMIT; ++i) {
+		mobs[i].boundingBox.x = SDL_rand(windowW);
+		mobs[i].boundingBox.y = SDL_rand(windowH);
+		mobs[i].boundingBox.w = 20;
+		mobs[i].boundingBox.h = 20;
+		mobs[i].rotation = 0;
+		mobs[i].texture = mainPlayer.texture;
+		/* set RGB color for mobs should be completely green for now */
+		mobs[i].color[0] = 0;
+		mobs[i].color[1] = 255;
+		mobs[i].color[2] = 0;
+	}
+}
 void checkForInputs() {
 	const bool *key_states = SDL_GetKeyboardState(NULL);
 	SDL_FRect intersect[1];
@@ -172,10 +194,12 @@ SDL_AppResult loadTextures() {
 
 	return SDL_APP_CONTINUE;
 }
+
 /* This function runs once at startup. */
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
     bullets = SDL_malloc(sizeof(struct bullet)*BULLET_LIMIT);
+    mobs = SDL_malloc(sizeof(struct mob)*MOB_LIMIT);
     SDL_SetAppMetadata(TITLE, VERSION, NAMESPACE);
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
@@ -193,6 +217,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     if(loadTextures() != SDL_APP_CONTINUE) {
     	return SDL_APP_FAILURE;
     }
+    generateMobs();
     resetPlayer();
     return SDL_APP_CONTINUE;  /* carry on with the program! */
 }
@@ -224,8 +249,8 @@ SDL_AppResult SDL_AppIterate(void *appstate)
     SDL_RenderClear(renderer);  /* start with a blank canvas. */
     SDL_SetRenderDrawColor(renderer, 0,0,0, SDL_ALPHA_OPAQUE);
     SDL_RenderTextureTiled(renderer, wallTexture,NULL,1, walls);
-    SDL_SetTextureColorMod(mainPlayer.texture, 0,0,255);
-    SDL_SetTextureColorMod(bulletTexture, 0,0,255);
+    SDL_SetTextureColorMod(mainPlayer.texture, mainPlayer.color[0],mainPlayer.color[1],mainPlayer.color[2]);
+    SDL_SetTextureColorMod(bulletTexture, mainPlayer.color[0],mainPlayer.color[1],mainPlayer.color[2]);
     SDL_RenderTextureRotated(renderer,mainPlayer.texture,NULL,&mainPlayer.boundingBox,mainPlayer.rotation,NULL,SDL_FLIP_NONE);
     if(bulletc > 0) {
 		for(int i=0; i<bulletc; ++i){
@@ -233,7 +258,12 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 			SDL_RenderTextureRotated(renderer,bulletTexture,NULL,&bullets[i].rect,bullets[i].rotation+90,NULL,SDL_FLIP_NONE);
 		}
 	}
-    SDL_RenderPresent(renderer);  /* put it all on the screen! */
+    /* Render Mobs with modulated colors */
+    for(int i=0; i<MOB_LIMIT; ++i){ 
+    	SDL_SetTextureColorMod(mobs[i].texture, mobs[i].color[0],mobs[i].color[1],mobs[i].color[2]);
+    	SDL_RenderTextureRotated(renderer,mobs[i].texture,NULL,&mobs[i].boundingBox,mobs[i].rotation,NULL,SDL_FLIP_NONE);
+    }
+   SDL_RenderPresent(renderer);  /* put it all on the screen! */
 
     return SDL_APP_CONTINUE;  /* carry on with the program! */
 }
