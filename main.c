@@ -7,7 +7,6 @@
 #include <SDL3/SDL_main.h>
 #include "info.h"
 #include <SDL3/SDL_surface.h>
-/* We will use this renderer to draw into this window every frame. */
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
 SDL_FRect walls[1];
@@ -16,28 +15,31 @@ static SDL_Texture *bulletTexture;
 float mouseX,mouseY = 0;
 int windowW = 640;
 int windowH = 480;
+/* Moving entity that can die and fire bullets */
 typedef struct mob {
-	SDL_Texture *texture;
-	SDL_FRect boundingBox; 
+	SDL_Texture *texture; /* Texture to be rendered */
+	SDL_FRect boundingBox; /* Rect to be used as a bounding box for physics */
 	int rotation;
-	int bulletfiredt;// Last time this player fired a bullet
-	int color[3];
+	int bulletfiredt;// Last time this mob fired a bullet
+	int color[3]; /* RGB color modulation for its texture */
 	int health;
 	bool dead;
 }mob;
-struct mob mainPlayer; 
+struct mob mainPlayer; /* Struct for player character */
 struct mob *mobs; /* Holds data for mobs other than mainPlayer */
 unsigned int mobc = 0; /* Total Mobs in game (Excluding mainPlayer) */
 unsigned int bulletc =0; /* Total bullets in game */
 unsigned int bulletn =0; /* Next index in bullet array that we will write to */ 
+/* Store info about a single bullet */
 typedef struct bullet {
-	SDL_FRect rect;
+	SDL_FRect rect; /* Bounding box for Physics */
 	float velocityX;
 	float velocityY;
-	float velocityLoss;
+	float velocityLoss; /* How much is subtracted from velocityX and velocityY each update */
 	float rotation;
 }bullet;
-struct bullet *bullets;
+struct bullet *bullets; /* Holds data for all bullets in-game */
+/* Update bullet's position based on velocity */
 void updateBullet(struct bullet *bullet) {
 	if(bullet->velocityX ==0 && bullet->velocityY ==0){bullet->rect.x=3000000; return;} /* To make this code simpler (and ultimately more robust)
 	just move this out of the way */
@@ -66,7 +68,8 @@ void updateBullet(struct bullet *bullet) {
 			bullet->velocityY -= bullet->velocityLoss;
 		}
 	}
-	}
+}
+/* Fire bullet from the player in the direction they are facing */
 void fireBullet() {
 			mainPlayer.bulletfiredt = SDL_GetTicks(); 
 			bullets[bulletn].rect.x = mainPlayer.boundingBox.x+(mainPlayer.boundingBox.w/2);
@@ -85,6 +88,7 @@ void fireBullet() {
 
 			
 }
+/* Set mainPlayer's initial values */
 void resetPlayer() {
     mainPlayer.boundingBox.x =0;
     mainPlayer.boundingBox.y =0;
@@ -95,12 +99,14 @@ void resetPlayer() {
     mainPlayer.color[1] = 0;
     mainPlayer.color[2] = 255;
 }
+/* For now, set hard-coded values for walls */
 void generateWalls() {
 	walls->x =100;
 	walls->y =150;
 	walls->w =50;
 	walls->h =50;
 }
+/* Set random intitial values for mobs */
 void generateMobs() {
 	mobc = (SDL_rand(MOB_LIMIT)+1);
 	for(int i=0; i<mobc; ++i) {
@@ -116,6 +122,7 @@ void generateMobs() {
 		mobs[i].color[2] = 0;
 	}
 }
+/* check for player inputs and act accordingly */
 void checkForInputs() {
 	const bool *key_states = SDL_GetKeyboardState(NULL);
 	SDL_FRect intersect[1];
@@ -154,9 +161,11 @@ void checkForInputs() {
 	}
 	SDL_GetMouseState(&mouseX, &mouseY);
 }
+/* Wrapper function for SDL_atan2 to make code more readable and consistent */
 int getRotationRelativeToPoint(int x, int y, int a, int b) {
 return (SDL_atan2((y-b), x-a)*180.0000)/PI;
 }
+/* Function to simplify the process of file->surface->texture */
 SDL_AppResult loadTextureFromBMP(SDL_Texture **texture, float w, float h, char * path) {
     char * bmp_path = NULL;
     SDL_Surface *surface = NULL;
@@ -182,6 +191,7 @@ SDL_AppResult loadTextureFromBMP(SDL_Texture **texture, float w, float h, char *
     return SDL_APP_CONTINUE;
 
 }
+/* Wrapper function for error checking loadTextureFromBMP */
 SDL_AppResult loadTextures() {
 	if(loadTextureFromBMP(&mainPlayer.texture, 20,20, "%simages/character.bmp") != SDL_APP_CONTINUE) {
 		return SDL_APP_FAILURE;	
@@ -287,5 +297,4 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 /* This function runs once at shutdown. */
 void SDL_AppQuit(void *appstate, SDL_AppResult result)
 {
-    /* SDL will clean up the window/renderer for us. */
 }
