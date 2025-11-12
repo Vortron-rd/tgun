@@ -200,28 +200,34 @@ SDL_AppResult loadTextures() {
 /* This function runs once at startup. */
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
+    /* Allocate memory for some arrays; these will be used throughout the whole program, so there is no need to SDL_free() */
     bullets = SDL_malloc(sizeof(struct bullet)*BULLET_LIMIT);
     mobs = SDL_malloc(sizeof(struct mob)*MOB_LIMIT);
+    /* Set metadata based off of defines from info.h */
     SDL_SetAppMetadata(TITLE, VERSION, NAMESPACE);
+    /* Initialize video */
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
-
+    /* Create window and renderer */
     if (!SDL_CreateWindowAndRenderer(TITLE, windowW, windowW, SDL_WINDOW_RESIZABLE, &window, &renderer)) {
         SDL_Log("Couldn't create window/renderer: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
-
+    /* Get Window sizes as the OS may have changed them */
     SDL_GetWindowSize(window,&windowW,&windowH);
+    /* Set renderer values */
     SDL_SetRenderLogicalPresentation(renderer, windowW, windowH, SDL_LOGICAL_PRESENTATION_LETTERBOX);
-    generateWalls();
+    /* Load textures into memory */
     if(loadTextures() != SDL_APP_CONTINUE) {
     	return SDL_APP_FAILURE;
     }
+    /* Generate values for in-game objects */
+    generateWalls();
     generateMobs();
     resetPlayer();
-    return SDL_APP_CONTINUE;  /* carry on with the program! */
+    return SDL_APP_CONTINUE;
 }
 
 /* This function runs when a new event (mouse input, keypresses, etc) occurs. */
@@ -229,31 +235,38 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 {
     switch(event->type) {
     	case  SDL_EVENT_QUIT:
-        	return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
+	/* end the program, reporting success to the OS. */
+        	return SDL_APP_SUCCESS;  
 	break;
 	case SDL_EVENT_WINDOW_FOCUS_GAINED:
+	/* Regain mouse grab on focus */
 		SDL_SetWindowMouseGrab(window, true);
 	break;
 	case SDL_EVENT_WINDOW_RESIZED:
+	/* Set windowW and windowH to the new size & Reset renderer to those values */
 		SDL_GetWindowSize(window,&windowW,&windowH);
 		SDL_SetRenderLogicalPresentation(renderer, windowW, windowH, SDL_LOGICAL_PRESENTATION_LETTERBOX);
 	break;
     }
-    return SDL_APP_CONTINUE; /* carry on with the program! */
+    return SDL_APP_CONTINUE;
 }
 
 /* This function runs once per frame, and is the heart of the program. */
 SDL_AppResult SDL_AppIterate(void *appstate)
 {
+    /* Program logic to be ran per frame */
     checkForInputs();    
     mainPlayer.rotation = getRotationRelativeToPoint(mainPlayer.boundingBox.x+(mainPlayer.boundingBox.w/2),mainPlayer.boundingBox.y+(mainPlayer.boundingBox.h/2), mouseX, mouseY);
+    /* Refresh frame */
     SDL_SetRenderDrawColor(renderer, 210, 180, 140, SDL_ALPHA_OPAQUE);  
-    SDL_RenderClear(renderer);  /* start with a blank canvas. */
-    SDL_SetRenderDrawColor(renderer, 0,0,0, SDL_ALPHA_OPAQUE);
+    SDL_RenderClear(renderer); 
+    /* Render Walls */
     SDL_RenderTextureTiled(renderer, wallTexture,NULL,1, walls);
+    /* Render mainPlayer */
     SDL_SetTextureColorMod(mainPlayer.texture, mainPlayer.color[0],mainPlayer.color[1],mainPlayer.color[2]);
-    SDL_SetTextureColorMod(bulletTexture, mainPlayer.color[0],mainPlayer.color[1],mainPlayer.color[2]);
     SDL_RenderTextureRotated(renderer,mainPlayer.texture,NULL,&mainPlayer.boundingBox,mainPlayer.rotation,NULL,SDL_FLIP_NONE);
+    /* Render bullets with their color set to the mainPlayer's */
+    SDL_SetTextureColorMod(bulletTexture, mainPlayer.color[0],mainPlayer.color[1],mainPlayer.color[2]);
     if(bulletc > 0) {
 		for(int i=0; i<bulletc; ++i){
 			updateBullet(&bullets[i]);
@@ -265,9 +278,10 @@ SDL_AppResult SDL_AppIterate(void *appstate)
     	SDL_SetTextureColorMod(mobs[i].texture, mobs[i].color[0],mobs[i].color[1],mobs[i].color[2]);
     	SDL_RenderTextureRotated(renderer,mobs[i].texture,NULL,&mobs[i].boundingBox,mobs[i].rotation,NULL,SDL_FLIP_NONE);
     }
-   SDL_RenderPresent(renderer);  /* put it all on the screen! */
+   /* Push render buffer to screen */
+   SDL_RenderPresent(renderer);
 
-    return SDL_APP_CONTINUE;  /* carry on with the program! */
+    return SDL_APP_CONTINUE;
 }
 
 /* This function runs once at shutdown. */
