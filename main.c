@@ -27,6 +27,7 @@ typedef struct mob {
 }mob;
 struct mob mainPlayer; 
 struct mob *mobs; /* Holds data for mobs other than mainPlayer */
+unsigned int mobc = 0; /* Total Mobs in game (Excluding mainPlayer) */
 unsigned int bulletc =0; /* Total bullets in game */
 unsigned int bulletn =0; /* Next index in bullet array that we will write to */ 
 typedef struct bullet {
@@ -101,7 +102,8 @@ void generateWalls() {
 	walls->h =50;
 }
 void generateMobs() {
-	for(int i=0; i<MOB_LIMIT; ++i) {
+	mobc = (SDL_rand(MOB_LIMIT)+1);
+	for(int i=0; i<mobc; ++i) {
 		mobs[i].boundingBox.x = SDL_rand(windowW);
 		mobs[i].boundingBox.y = SDL_rand(windowH);
 		mobs[i].boundingBox.w = 20;
