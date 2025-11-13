@@ -2,6 +2,7 @@
 #define PI 0x1.921fb6p+1f
 #define BULLET_LIMIT 1000
 #define BULLET_COOLDOWN 100
+#define BULLET_DAMAGE 25
 #define MOB_LIMIT 3
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -23,13 +24,12 @@ typedef struct mob {
 	int bulletfiredt;	// Last time this mob fired a bullet
 	int color[3];		/* RGB color modulation for its texture */
 	int health;
-	bool dead;
+	unsigned int index;
 } mob;
 struct mob mainPlayer;		/* Struct for player character */
 struct mob *mobs;		/* Holds data for mobs other than mainPlayer */
 unsigned int mobc = 0;		/* Total Mobs in game (Excluding mainPlayer) */
 unsigned int bulletc = 0;	/* Total bullets in game */
-unsigned int bulletn = 0;	/* Next index in bullet array that we will write to */
 /* Store info about a single bullet */
 typedef struct bullet {
 	SDL_FRect rect;		/* Bounding box for Physics */
@@ -37,17 +37,48 @@ typedef struct bullet {
 	float velocityY;
 	float velocityLoss;	/* How much is subtracted from velocityX and velocityY each update */
 	float rotation;
+	unsigned int index;
 } bullet;
 struct bullet *bullets;		/* Holds data for all bullets in-game */
+
+/* Handles re-organizing the array everytime a mob is killed */
+void killMob(struct mob *mob)
+{
+	/* For each mob above the one we killed, move it's index (variable and array index) back by one */
+	for (int i = mob->index + 1; i < mobc - mob->index; i++) {
+		mobs[i - 1] = mobs[i];
+		mobs[i - 1].index--;
+	}
+	mobc--;
+}
+
+/* Function to eventually hold all of damage logic */
+int attack(struct mob *mob, int damage)
+{
+	mob->health -= damage;
+	if (mob->health <= 0)
+		killMob(mob);
+	return damage;		/* Although it is the same now, eventually damage dealt != weapon damage */
+}
+/* Handles re-organizing the array everytime a mob is killed */
+void killBullet(struct bullet *bullet)
+{
+	/* For each bullet above the one we killed, move it's index (variable and array index) back by one */
+	for (int i = bullet->index + 1; i < bulletc - bullet->index; i++) {
+		bullet[i - 1] = bullet[i];
+		bullet[i - 1].index--;
+	}
+	bulletc--;
+}
+
 /* Update bullet's position based on velocity */
 void updateBullet(struct bullet *bullet)
 {
-	if (bullet->velocityX == 0 && bullet->velocityY == 0) {
-		bullet->rect.x = 3000000;
-		return;
-	}			/* To make this code simpler (and ultimately more robust)
-				   just move this out of the way */
 
+	if (bullet->velocityX == 0 && bullet->velocityY == 0) {
+		killBullet(bullet);
+		return;
+	}
 	if (bullet->velocityLoss > SDL_fabs(bullet->velocityX)) {
 		bullet->velocityX = 0;
 	} else {
@@ -68,31 +99,35 @@ void updateBullet(struct bullet *bullet)
 			bullet->velocityY -= bullet->velocityLoss;
 		}
 	}
+	for (int i = 0; i < mobc; i++) {
+		if (SDL_HasRectIntersectionFloat(&bullet->rect, &mobs[i].boundingBox)) {
+			killBullet(bullet);
+			attack(&mobs[i], BULLET_DAMAGE);
+			SDL_Log("Shot mob %d, health:%d", i, mobs[i].health);
+			//destroyBullet(*bullet);
+		}
+
+	}
+
 }
 
 /* Fire bullet from the player in the direction they are facing */
 void fireBullet()
 {
-	mainPlayer.bulletfiredt = SDL_GetTicks();
-	bullets[bulletn].rect.x = mainPlayer.boundingBox.x + (mainPlayer.boundingBox.w / 2);
-	bullets[bulletn].rect.y = mainPlayer.boundingBox.y + (mainPlayer.boundingBox.h / 2);
-	bullets[bulletn].rect.w = 5;
-	bullets[bulletn].rect.h = 10;
-	bullets[bulletn].velocityX = -1 * SDL_cos(mainPlayer.rotation * PI / 180) / 60;
-	bullets[bulletn].velocityY = -1 * SDL_sin(mainPlayer.rotation * PI / 180) / 60;
-	bullets[bulletn].velocityLoss = 0.000001;
-	bullets[bulletn].rotation = mainPlayer.rotation;
-	/* Prevent from writing memory past the limit next time
-	   if this is attempted, begin overwriting the bullets in order of first to last */
-	if (bulletc < BULLET_LIMIT) {
-		bulletc++;
-		bulletn = bulletc;
+	if(bulletc >= BULLET_LIMIT) {
+		return;
 	}
-	if (bulletn >= BULLET_LIMIT - 1)
-		bulletn = 0;
-	else
-		bulletn++;
-
+	mainPlayer.bulletfiredt = SDL_GetTicks();
+	bullets[bulletc].rect.x = mainPlayer.boundingBox.x + (mainPlayer.boundingBox.w / 2);
+	bullets[bulletc].rect.y = mainPlayer.boundingBox.y + (mainPlayer.boundingBox.h / 2);
+	bullets[bulletc].rect.w = 5;
+	bullets[bulletc].rect.h = 10;
+	bullets[bulletc].velocityX = -1 * SDL_cos(mainPlayer.rotation * PI / 180) / 60;
+	bullets[bulletc].velocityY = -1 * SDL_sin(mainPlayer.rotation * PI / 180) / 60;
+	bullets[bulletc].velocityLoss = 0.000001;
+	bullets[bulletc].rotation = mainPlayer.rotation;
+	bullets[bulletc].index = bulletc;
+	bulletc++;
 }
 
 /* Set mainPlayer's initial values */
@@ -106,6 +141,7 @@ void resetPlayer()
 	mainPlayer.color[0] = 0;
 	mainPlayer.color[1] = 0;
 	mainPlayer.color[2] = 255;
+	mainPlayer.health = 100;
 }
 
 /* For now, set hard-coded values for walls */
@@ -132,6 +168,8 @@ void generateMobs()
 		mobs[i].color[0] = 0;
 		mobs[i].color[1] = 255;
 		mobs[i].color[2] = 0;
+		mobs[i].health = 100;
+		mobs[i].index = i;
 	}
 }
 
@@ -308,7 +346,7 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 		}
 	}
 	/* Render Mobs with modulated colors */
-	for (int i = 0; i < MOB_LIMIT; ++i) {
+	for (int i = 0; i < mobc; ++i) {
 		SDL_SetTextureColorMod(mobs[i].texture, mobs[i].color[0], mobs[i].color[1], mobs[i].color[2]);
 		SDL_RenderTextureRotated(renderer, mobs[i].texture, NULL, &mobs[i].boundingBox, mobs[i].rotation, NULL, SDL_FLIP_NONE);
 	}
